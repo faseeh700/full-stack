@@ -3,6 +3,15 @@ import { Request, Response } from "express";
 import pool from "../db/pool";
 import { handleError } from "../utils/errorHandler";
 
+
+
+
+
+
+
+
+
+
 // 🟢 1. Get All Students
 export const getAllStudents = async (_req: Request, res: Response) => {
   try {
