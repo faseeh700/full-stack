@@ -15,7 +15,7 @@ import { handleError } from "../utils/errorHandler";
 // 🟢 1. Get All Students
 export const getAllStudents = async (_req: Request, res: Response) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM students");
+    const { rows } = await pool.query("SELECT * FROM students WHERE id = 18");
     res.json({ students: rows });
   } catch (error) {
     handleError(res, error);
