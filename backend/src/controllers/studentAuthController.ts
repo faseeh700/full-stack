@@ -1,7 +1,8 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pool from "../db/pool";
+import { AuthenticatedRequest } from "../../types";
 
 // 🔑 Helper: Hash passwords
 const hashPassword = async (password: string) => {
@@ -10,20 +11,39 @@ const hashPassword = async (password: string) => {
 };
 
 // 🔑 Helper: Create JWT token
-const generateToken = (userId: number) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: "1h" });
+const generateToken = (userId: number,username:string,email:string) => {
+  return jwt.sign({ userId,username,email }, process.env.JWT_SECRET!, { expiresIn: "1h" });
 };
 
 
-export const authenticateJWT = (req:Request,res:Response) =>{
-const token = req.header("Authorization")
-if(!token){
-  res.status(401).json({error:"Access denied. No token provided."})
-}
-const decode = jwt.verify(token!.replace("Bearer ",""),process.env.JWT_SECRET!,)
+export const authenticateJWT = (req: AuthenticatedRequest, res: Response, next: NextFunction):void => {
+  // 1️⃣ Get token from request headers
+  const token = req.header("Authorization");
 
+  // 2️⃣ If no token, deny access
+  if (!token) {
+    res.status(401).json({ error: "Access denied. No token provided." });
+    return 
+  }
 
-} 
+  try {
+    // 3️⃣ Verify token
+    const decoded = jwt.verify(token.replace("Bearer ", ""), process.env.JWT_SECRET!) as {
+      userId: number;
+      email?: string;
+      username?: string;
+    };
+
+    // 4️⃣ Attach user data to request object
+    req.user = decoded;
+
+    // 5️⃣ Continue to the next middleware/route
+    next();
+  } catch (error) {
+    res.status(403).json({ error: "Invalid token" });
+  }
+};
+
 
 
 
@@ -88,12 +108,24 @@ export const login = async (req: Request, res: Response):Promise<void> => {
 
     
     // 3. Generate token
-    const token = generateToken(user.rows[0].id);
+    const token = generateToken(user.rows[0].id,user.rows[0].username,user.rows[0].email);
+  
 
     res.json({ user:{email: user.rows[0].email,id:user.rows[0].id}, token });
   } catch (error) {
     res.status(500).json({ error: "Login failed" });
   }
+};
+
+
+
+export const ProtectedDashboard = (req: AuthenticatedRequest, res: Response):void => {
+  console.log(req.user)
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized access" });
+    return 
+  }
+  res.json({ message: `Welcome ${req.user.email}!`, user: req.user });
 };
 
 
