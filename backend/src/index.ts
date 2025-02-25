@@ -2,7 +2,7 @@
 import express from "express";
 import studentRoutes from "./routes/studentRoutes";
 import { initDB } from "./db/pool";
-import userRoutes from "./routes/userRoutes"
+import authRoutes from "./routes/authRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -16,7 +16,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api", studentRoutes);
-app.use("/api", userRoutes);
+app.use("/auth", authRoutes);
 
 
 // Start server
