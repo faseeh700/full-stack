@@ -68,28 +68,32 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
 
 export const refreshToken = async (req: Request, res: Response):Promise<any> => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ error: "Refresh token is required" });
+  }
+
   try {
-    const { token } = req.body;
-    if (!token) return res.status(401).json({ error: "Refresh token required" });
+    // Verify JWT signature
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number };
 
-    // 1️⃣ Check if token exists in DB
-    const tokenQuery = await pool.query("SELECT * FROM refresh_tokens WHERE token = $1", [token]);
-    console.log("refresh token",tokenQuery.rows[0])
-    if (tokenQuery.rowCount === 0) return res.status(403).json({ error: "Invalid refresh token" });
+    // Check if token exists in database
+    const result = await pool.query("SELECT * FROM refresh_tokens WHERE token = $1", [token]);
 
-    const refreshTokenRecord = tokenQuery.rows[0];
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: "Invalid or expired token" });
+    }
 
-    // 2️⃣ Verify token
-    jwt.verify(token, process.env.REFRESH_SECRET!, async (err:any, decoded: any) => {
-      if (err) return res.status(403).json({ error: "Invalid refresh token" });
-
-      // 3️⃣ Generate new access token
-      const accessToken = generateToken(decoded.userId,decoded.username, decoded.email);
-      res.json({ accessToken });
+    // Generate a new access token
+    const newAccessToken = jwt.sign({ userId: decoded.userId }, process.env.JWT_SECRET!, {
+      expiresIn: "15m",
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+
+    res.json({ accessToken: newAccessToken });
+  } catch (error) {
+    console.error("JWT Verification Error:", error);
+    res.status(403).json({ error: "Invalid token" });
   }
 };
 
