@@ -14,7 +14,7 @@ export const authenticateJWT = async (req: AuthenticatedRequest, res: Response, 
   try {
     // 1️⃣ Verify and decode the JWT token
     const decoded = jwt.verify(token.replace("Bearer ", ""), process.env.JWT_SECRET!) as { userId: number; email: string };
-
+console.log("decoded",decoded)
     // 2️⃣ Initialize req.user with user ID and email
     req.user = { userId: decoded.userId, email: decoded.email, roles: [] };
 

@@ -9,11 +9,11 @@ export const hashPassword = async (password: string) => {
 
 // 🔑 Generate JWT token
 export const generateToken = (userId: number, username: string, email: string) => {
-  return jwt.sign({ userId, username, email }, process.env.JWT_SECRET!, { expiresIn: "1h" });
+  return jwt.sign({ userId, username, email }, process.env.JWT_SECRET!, { expiresIn: "1m" });
 };
 
 
 
 export const generateRefreshToken = (userId: number) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: "7h" });
+  return jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: "2m" });
 };

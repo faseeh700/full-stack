@@ -53,10 +53,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const token = generateToken(user.rows[0].id, user.rows[0].username, user.rows[0].email);
     const refreshToken = generateRefreshToken(user.rows[0].id)
 
-    await pool.query(
+    const {rowCount} =  await pool.query(
       "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '7 days')",
       [user.rows[0].id, refreshToken]
     );
+    console.log(rowCount)
 
     res.json({message:"login successfully", token,refreshToken });
   } catch (error) {
@@ -96,6 +97,36 @@ export const refreshToken = async (req: Request, res: Response):Promise<any> => 
     res.status(403).json({ error: "Invalid token" });
   }
 };
+
+
+
+
+export const logout = async (req: Request, res: Response):Promise<any> => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: "Refresh token is required" });
+    }
+
+    // 1️⃣ Delete the refresh token from the database
+    const result = await pool.query("DELETE FROM refresh_tokens WHERE token = $1", [token]);
+console.log("deleted token",result.rowCount)
+    // 2️⃣ Check if the token was actually deleted
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Token not found or already logged out" });
+    }
+
+    // 3️⃣ Send success response
+    return res.status(200).json({ message: "Logged out successfully" });
+
+  } catch (error) {
+    console.error("Logout Error:", error);
+    return res.status(500).json({ error: "Server error during logout" });
+  }
+};
+
+
+
 
 
 
