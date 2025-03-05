@@ -8,6 +8,15 @@ import {
 import { AuthenticatedRequest } from "../../types";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
+
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // ⏳ 15 minutes
+  max: 5, // 🚫 Allow only 5 attempts per IP
+  message: { error: "Too many login attempts. Please try again later." },
+  standardHeaders: true, // ✅ Return rate limit info in headers
+  legacyHeaders: false, // 🔄 Disable old headers
+});
 
 // 🟢 Register User
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -90,12 +99,13 @@ export const refreshToken = async (
     const refreshToken = req.cookies.refreshToken; // ✅ Read from cookies
     if (!refreshToken) return res.status(401).json({ error: "Unauthorized" });
 
-    const tokenCheck = await pool.query(
-      "SELECT * FROM refresh_tokens WHERE token = $1",
+    const { rows } = await pool.query(
+      "SELECT 1 FROM token_blacklist WHERE token = $1",
       [refreshToken],
     );
-    if (tokenCheck.rows.length === 0) {
-      return res.status(403).json({ message: "Invalid refresh token" });
+
+    if (rows.length > 0) {
+      return res.status(403).json({ error: "Token blacklisted" });
     }
 
     jwt.verify(
@@ -145,10 +155,11 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    await pool.query("DELETE FROM refresh_tokens WHERE token = $1", [
-      refreshToken,
-    ]);
-
+    // Store token in the blacklist
+    await pool.query(
+      "INSERT INTO token_blacklist (token, blacklisted_at) VALUES ($1, NOW() + INTERVAL '7 days')",
+      [refreshToken],
+    );
     res.clearCookie("refreshToken");
 
     // 3️⃣ Send success response
