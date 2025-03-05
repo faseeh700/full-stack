@@ -14,6 +14,8 @@ app.use(express.json());
 app.use(cookieParser());
 // create new Tables from here
 // initDB()
+// app.set("trust proxy", 1);
+app.set("trust proxy", true);
 
 // Routes
 app.use("/api", studentRoutes);
