@@ -59,7 +59,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Generate JWT token
-    const token = generateToken(user.rows[0].id);
+    const accessToken = generateToken(user.rows[0].id);
     const refreshToken = generateRefreshToken(user.rows[0].id);
 
     const { rowCount } = await pool.query(
@@ -68,7 +68,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     );
     console.log(rowCount);
 
-    res.json({ message: "login successfully", token, refreshToken });
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+    });
+
+    res.json({ message: "login successfully", accessToken });
   } catch (error) {
     res.status(500).json({ error: "Login failed" });
   }
@@ -79,13 +86,9 @@ export const refreshToken = async (
   res: Response,
 ): Promise<any> => {
   try {
-    const { refreshToken } = req.body;
-
-    if (!refreshToken) {
-      return res
-        .status(400)
-        .json({ error: "Refresh refreshToken is required" });
-    }
+    console.log("refresh cookies", req.cookies);
+    const refreshToken = req.cookies.refreshToken; // ✅ Read from cookies
+    if (!refreshToken) return res.status(401).json({ error: "Unauthorized" });
 
     const tokenCheck = await pool.query(
       "SELECT * FROM refresh_tokens WHERE token = $1",
@@ -115,9 +118,15 @@ export const refreshToken = async (
           [userId, newRefreshToken],
         );
 
+        res.cookie("refreshToken", newRefreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+        });
+
         res.json({
           accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
         });
       },
     );
@@ -127,23 +136,26 @@ export const refreshToken = async (
   }
 };
 
-export const logout = async (req: Request, res: Response): Promise<any> => {
+export const logout = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { token } = req.body;
-    if (!token) {
-      return res.status(400).json({ error: "Refresh token is required" });
+    console.log("Received Cookies in Logout:", req.cookies); // 🔥 Debugging
+    const refreshToken = req.cookies.refreshToken; // ✅ Read from cookies;
+    if (!refreshToken) {
+      res.status(204).send(); // No Content
+      return;
     }
 
-    // 1️⃣ Delete the refresh token from the database
-    await pool.query("INSERT INTO token_blacklist (token) VALUES ($1)", [
-      token,
+    await pool.query("DELETE FROM refresh_tokens WHERE token = $1", [
+      refreshToken,
     ]);
 
+    res.clearCookie("refreshToken");
+
     // 3️⃣ Send success response
-    return res.status(200).json({ message: "Logged out successfully" });
+    res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout Error:", error);
-    return res.status(500).json({ error: "Server error during logout" });
+    res.status(500).json({ error: "Server error during logout" });
   }
 };
 
