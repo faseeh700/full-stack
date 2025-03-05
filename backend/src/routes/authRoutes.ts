@@ -1,13 +1,17 @@
 import express from "express";
-import { register,login, refreshToken, logout
- } from "../controllers/authController";
+import {
+  register,
+  login,
+  refreshToken,
+  logout,
+  loginLimiter,
+} from "../controllers/authController";
 
- const router  = express.Router()
+const router = express.Router();
 
+router.post("/register", register);
+router.post("/login", loginLimiter,login);
+router.post("/logout", logout);
+router.post("/refresh", refreshToken);
 
-router.post("/register",register)
-router.post("/login",login)
-router.post("/logout",logout)
-router.post("/refresh",refreshToken)
-
-export default router
+export default router;
